@@ -26,7 +26,7 @@ const WANTED = [
   /Streaming_History_Audio[^/]*\.json$/i,
   /endsong[^/]*\.json$/i,
   /YourLibrary\.json$/i,
-  /music[ -_]library[ -_]songs\.csv$/i,
+  /\.csv$/i, // checked by its columns; ones without an artist column are skipped quietly
 ];
 
 export function isWantedName(name) {
@@ -34,11 +34,11 @@ export function isWantedName(name) {
 }
 
 // Returns { service, label, entries } or null if the file isn't recognised.
-export function parseFile(name, text) {
+export function parseFile(name, text, fallbackService) {
   const lower = name.toLowerCase();
   if (lower.endsWith(".json")) return parseJson(text);
   if (lower.endsWith(".html") || lower.endsWith(".htm")) return parseWatchHistoryHtml(text);
-  if (lower.endsWith(".csv")) return parseLibraryCsv(text);
+  if (lower.endsWith(".csv")) return parseAnyCsv(text, fallbackService);
   return null;
 }
 
@@ -129,20 +129,50 @@ function parseWatchHistoryHtml(text) {
   return { service: "youtube", label: "YouTube Music watch history", entries };
 }
 
-// "music library songs.csv" from Takeout: liked/saved songs, no play counts.
-function parseLibraryCsv(text) {
+// CSVs come from several places, so columns are matched by name:
+//  - Takeout "music library songs.csv" (YouTube Music saved songs)
+//  - Exportify and similar Spotify playlist/liked-songs exports
+//  - Spotify streaming history converted to CSV, or listening-history tools
+// fallbackService is the box the file was dropped on, used when the columns don't say.
+function parseAnyCsv(text, fallbackService) {
   const rows = parseCsv(text.replace(/^\uFEFF/, ""));
   if (rows.length < 2) return null;
-  const head = rows[0].map((h) => h.trim().toLowerCase());
-  const artistCol = head.findIndex((h) => h === "artist name 1" || h === "artist names" || h === "artist name");
-  const titleCol = head.findIndex((h) => h === "song title" || h === "title");
+  const head = rows[0].map((h) => h.trim().toLowerCase().replace(/[\s_]+/g, " "));
+  const col = (...names) => head.findIndex((h) => names.includes(h));
+
+  const artistCol = col(
+    "artist name 1", "artist name(s)", "artist names", "artist name", "artistname", "artist",
+    "artists", "master metadata album artist name", "album artist name"
+  );
   if (artistCol < 0) return null;
-  const entries = rows
-    .slice(1)
-    .filter((r) => r[artistCol])
-    .map((r) => ({ artist: cleanArtist(r[artistCol].split(",")[0]), track: r[titleCol] || "", time: null, kind: "saved" }));
-  return { service: "youtube", label: "YouTube Music library", entries };
+  const trackCol = col("track name", "trackname", "song title", "title", "track", "song", "master metadata track name");
+  const msCol = col("ms played", "msplayed");
+  const timeCol = col("ts", "endtime", "end time", "played at", "timestamp", "date", "time");
+
+  let service = fallbackService;
+  if (head.includes("artist name 1") || head.includes("video id")) service = "youtube";
+  else if (head.some((h) => /spotify|track uri|artist uri|master metadata|msplayed|ms played/.test(h))) service = "spotify";
+
+  // A play-time or play-date column means it's history; otherwise it's a list of saved songs.
+  const isHistory = msCol >= 0 || timeCol >= 0;
+  const entries = [];
+  for (const r of rows.slice(1)) {
+    const rawArtist = r[artistCol];
+    if (!rawArtist) continue;
+    if (msCol >= 0 && Number(r[msCol]) < MIN_SPOTIFY_MS) continue;
+    entries.push({
+      // Multi-artist cells ("A, B" or "A;B"): credit the first artist.
+      artist: cleanArtist(rawArtist.split(/;|, (?=\S)/)[0]),
+      track: trackCol >= 0 ? r[trackCol] : "",
+      time: isHistory && timeCol >= 0 ? toTime(r[timeCol]) : null,
+      kind: isHistory ? "play" : "saved",
+    });
+  }
+  const name = NAMES[service];
+  return { service, label: `${name} ${isHistory ? "listening history" : "saved songs"} (CSV)`, entries };
 }
+
+const NAMES = { spotify: "Spotify", youtube: "YouTube Music" };
 
 function parseCsv(text) {
   const rows = [];

@@ -38,7 +38,7 @@ async function addFiles(files, zoneService) {
     setStatus(`Reading ${file.name}…`);
     try {
       if (/\.zip$/i.test(file.name)) await addZip(file, zoneService);
-      else addParsed(file.name, parseFile(file.name, await file.text()), zoneService);
+      else addParsed(file.name, parseFile(file.name, await file.text(), zoneService), zoneService);
     } catch (err) {
       markBad(zoneService, file.name, "couldn't be read");
       console.error(err);
@@ -56,10 +56,17 @@ async function addZip(file, zoneService) {
     markBad(zoneService, file.name, "no listening history inside");
     return;
   }
+  let found = 0;
   for (const n of names) {
     setStatus(`Reading ${n.split("/").pop()}…`);
-    addParsed(n, parseFile(n, await zip.files[n].async("string")), zoneService);
+    const parsed = parseFile(n, await zip.files[n].async("string"), zoneService);
+    // Big exports hold plenty of unrelated files, so only report on the ones that matched.
+    if (parsed && parsed.entries.length) {
+      addParsed(n, parsed, zoneService);
+      found++;
+    }
   }
+  if (!found) markBad(zoneService, file.name, "no listening history inside");
 }
 
 function addParsed(path, parsed, zoneService) {

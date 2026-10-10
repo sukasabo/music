@@ -36,8 +36,12 @@ Files it reads:
 
 | Service | Files |
 |---|---|
-| Spotify | `StreamingHistory_music_*.json`, `StreamingHistory*.json`, `Streaming_History_Audio_*.json`, `endsong_*.json`, `YourLibrary.json` |
+| Spotify | `StreamingHistory_music_*.json`, `StreamingHistory*.json`, `Streaming_History_Audio_*.json`, `endsong_*.json`, `YourLibrary.json`, or a CSV |
 | YouTube Music | `watch-history.json`, `watch-history.html`, `music library songs.csv` |
+
+CSV files are read by their column names, so most exports work: streaming history saved as CSV,
+playlist or liked-song exports from tools like Exportify, or any CSV with an artist column. A CSV with
+a play time or date column counts as listening history; one without counts as saved songs.
 
 Spotify plays shorter than 30 seconds are skipped. Only YouTube history entries from YouTube Music are counted.
 If a service has no play history, its saved songs are used instead.
