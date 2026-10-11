@@ -3,7 +3,7 @@
 import { artistKey, cleanArtist } from "./parsers.js";
 import { familyOf } from "./genres.js";
 
-// entries -> { plays, usesSaved, artists: Map(key -> {key, name, count}), first, last }
+// entries -> { plays, usesSaved, artists: Map(key -> {key, name, count, tracks}), first, last }
 // Play history is preferred; a saved library only counts when there's no history.
 export function buildProfile(entries, range) {
   const plays = entries.filter((e) => e.kind === "play");
@@ -17,8 +17,10 @@ export function buildProfile(entries, range) {
   for (const e of used) {
     const key = artistKey(e.artist);
     if (!key) continue;
-    const a = artists.get(key) || { key, name: cleanArtist(e.artist), count: 0 };
+    const a = artists.get(key) || { key, name: cleanArtist(e.artist), count: 0, tracks: new Map() };
     a.count++;
+    const title = String(e.track || "").trim();
+    if (title) a.tracks.set(title, (a.tracks.get(title) || 0) + 1);
     artists.set(key, a);
     if (e.time != null) {
       if (e.time < first) first = e.time;
@@ -143,4 +145,33 @@ export function compare(spotify, youtube, genreMap) {
     onlyYoutube,
     sharedCount: shared.length,
   };
+}
+
+// Artists in `from`'s library that `to` doesn't play but whose genres match `to`'s taste.
+// Each comes with `from`'s most-played song by that artist.
+export function crossRecommend(to, from, genreMap, limit = 8) {
+  const taste = genreProfile(to, genreMap).genres;
+  const picks = [];
+  for (const a of from.artists.values()) {
+    if (to.artists.has(a.key)) continue;
+    const weights = genreMap.get(a.key);
+    if (!weights || !Object.keys(weights).length) continue;
+    const fit = cosine(new Map(Object.entries(weights)), taste);
+    if (fit < 0.25) continue;
+    // The genres doing the matching, strongest first.
+    const why = Object.entries(weights)
+      .filter(([g]) => taste.has(g))
+      .sort((x, y) => y[1] * taste.get(y[0]) - x[1] * taste.get(x[0]))
+      .slice(0, 2)
+      .map(([g]) => g);
+    picks.push({ name: a.name, key: a.key, song: topTrack(a), why, score: fit * Math.log(1 + a.count) });
+  }
+  return picks.sort((x, y) => y.score - x.score).slice(0, limit);
+}
+
+function topTrack(artist) {
+  let best = "";
+  let most = 0;
+  for (const [title, n] of artist.tracks || []) if (n > most) { best = title; most = n; }
+  return best;
 }

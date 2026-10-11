@@ -14,6 +14,17 @@ looks up each artist's genres in a public music database, and shows:
 
 Everything runs in the browser. Your files are never uploaded; only artist names are sent to the genre database.
 
+## Recommendations
+
+- **From each other's libraries:** artists one person plays that fit the other's genres, with the song
+  they play most by that artist. Works with either genre source.
+- **New for both of you:** artists neither person plays, similar to the ones you share, with each
+  artist's top song. Needs a Last.fm API key.
+
+Each list has search links to Spotify or YouTube Music and a **Copy song list** button. The copied
+"Artist - Song" lines can be pasted into a playlist import tool such as TuneMyMusic (free text option)
+to make a Spotify or YouTube Music playlist.
+
 ## Sharing
 
 Under the results, **Copy link** makes a link to the report. The report itself is packed into the link

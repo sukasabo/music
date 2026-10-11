@@ -1,6 +1,6 @@
-import { parseFile, isWantedName } from "./parsers.js";
-import { lookupGenres } from "./genres.js";
-import { buildProfile, dateSpan, topArtists, compare } from "./compare.js";
+import { parseFile, isWantedName, artistKey } from "./parsers.js";
+import { lookupGenres, discoverSimilar } from "./genres.js";
+import { buildProfile, dateSpan, topArtists, compare, crossRecommend } from "./compare.js";
 
 const NAMES = { spotify: "Spotify", youtube: "YouTube Music" };
 // Whose listening each service holds; filled in from the name boxes.
@@ -238,7 +238,20 @@ async function run() {
       },
     });
     const result = compare(spotify, youtube, genreMap);
-    report = buildReport(result, genreMap, { spotify, youtube, range, source });
+    const recs = {
+      forSp: crossRecommend(spotify, youtube, genreMap),
+      forYt: crossRecommend(youtube, spotify, genreMap),
+      discover: null,
+    };
+    if (apiKey && !controller.signal.aborted) {
+      setStatus("Finding new artists for you both…");
+      // Seed with the artists they share; fall back to each person's favourites.
+      const seeds = result.shared.slice(0, 6).map((a) => a.name);
+      if (seeds.length < 3) seeds.push(...topArtists(spotify, 3).map((a) => a.name), ...topArtists(youtube, 3).map((a) => a.name));
+      const known = new Set([...spotify.artists.keys(), ...youtube.artists.keys()]);
+      recs.discover = await discoverSimilar(seeds, known, artistKey, apiKey);
+    }
+    report = buildReport(result, genreMap, { spotify, youtube, range, source, recs });
     render();
     const found = [...genreMap.values()].filter((w) => Object.keys(w).length).length;
     setStatus(
@@ -255,7 +268,7 @@ async function run() {
 }
 
 // Everything the results need, rounded and trimmed so it fits in a link.
-function buildReport(r, genreMap, { spotify, youtube, range, source }) {
+function buildReport(r, genreMap, { spotify, youtube, range, source, recs }) {
   const round = (x) => Math.round((x || 0) * 10000) / 10000;
   const tagsFor = (key) =>
     Object.entries(genreMap.get(key) || {})
@@ -288,6 +301,11 @@ function buildReport(r, genreMap, { spotify, youtube, range, source }) {
     shared: people(r.shared, 20, (a) => ({ s: round(a.spotify), y: round(a.youtube) })),
     onlySp: people(r.onlySpotify, 10, (a) => ({ s: round(a.share) })),
     onlyYt: people(r.onlyYoutube, 10, (a) => ({ y: round(a.share) })),
+    recs: {
+      forSp: recs.forSp.map((a) => ({ n: a.name, song: a.song, why: a.why })),
+      forYt: recs.forYt.map((a) => ({ n: a.name, song: a.song, why: a.why })),
+      discover: recs.discover && recs.discover.map((a) => ({ n: a.name, song: a.song, like: a.why })),
+    },
     notes:
       // {spotify} and {youtube} become the names when shown, so renaming later still works.
       `${describe(spotify, "{spotify} (Spotify)", r.coverage.spotify)} ${describe(youtube, "{youtube} (YouTube Music)", r.coverage.youtube)}` +
@@ -319,6 +337,7 @@ function render() {
   renderChart();
   renderLeans();
   renderArtists();
+  renderRecs();
   $("#coverage").textContent = r.notes.replace(/\{(spotify|youtube)\}/g, (_, svc) => PEOPLE[svc]);
   $("#share-status").textContent = "";
 }
@@ -420,6 +439,78 @@ function fillList(sel, items, parts) {
     row.append(who, m);
     ol.append(row);
   }
+}
+
+/* ---------- Recommendations ---------- */
+
+const SEARCH = {
+  spotify: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}`,
+  youtube: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}`,
+};
+const SERVICE_SHORT = { spotify: "Spotify", youtube: "YouTube Music" };
+
+function renderRecs() {
+  const recs = report.recs || { forSp: [], forYt: [], discover: null };
+  fillRecs("#rec-sp", recs.forSp, (a) => (a.why.length ? `because you like ${a.why.join(" and ")}` : ""), ["spotify"]);
+  fillRecs("#rec-yt", recs.forYt, (a) => (a.why.length ? `because you like ${a.why.join(" and ")}` : ""), ["youtube"]);
+  const sharedView = $("#setup").hidden;
+  $("#rec-new-panel").hidden = !recs.discover && sharedView;
+  $("#rec-new-note").hidden = !!recs.discover;
+  for (const btn of document.querySelectorAll(".copy-list")) {
+    const list = recs[btn.dataset.list];
+    btn.hidden = !list || !list.length;
+  }
+  fillRecs("#rec-new", recs.discover || [], (a) => (a.like.length ? `like ${a.like.join(" and ")}` : ""), ["spotify", "youtube"]);
+}
+
+// Each line: artist, the song to start with and why, plus links to search for it.
+function fillRecs(sel, items, reason, services) {
+  const ol = $(sel);
+  ol.replaceChildren();
+  if (!items.length) {
+    if (sel !== "#rec-new") ol.innerHTML = '<li class="empty">No close matches this time</li>';
+    return;
+  }
+  for (const item of items) {
+    const row = document.createElement("li");
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = item.n;
+    const sub = [item.song ? `\u201c${item.song}\u201d` : "", reason(item)].filter(Boolean).join(" \u00b7 ");
+    if (sub) {
+      const t = document.createElement("span");
+      t.className = "tags";
+      t.textContent = sub;
+      who.append(t);
+    }
+    const links = document.createElement("span");
+    links.className = "meta links";
+    for (const svc of services) {
+      const a = document.createElement("a");
+      a.href = SEARCH[svc](`${item.n} ${item.song || ""}`.trim());
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = services.length > 1 ? SERVICE_SHORT[svc] : "Listen";
+      links.append(a);
+    }
+    row.append(who, links);
+    ol.append(row);
+  }
+}
+
+// "Artist - Song" lines, the format playlist import tools (like TuneMyMusic's free text) accept.
+for (const btn of document.querySelectorAll(".copy-list")) {
+  btn.addEventListener("click", async () => {
+    const items = (report.recs && report.recs[btn.dataset.list]) || [];
+    const text = items.map((a) => (a.song ? `${a.n} - ${a.song}` : a.n)).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "Copied";
+    } catch {
+      prompt("Copy these songs:", text);
+    }
+    setTimeout(() => { btn.textContent = "Copy song list"; }, 2000);
+  });
 }
 
 /* ---------- Sharing ---------- */

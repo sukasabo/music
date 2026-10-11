@@ -177,3 +177,38 @@ export async function lookupGenres(artists, { source, apiKey, onProgress, signal
   }
   return result;
 }
+
+// New artists for two people: Last.fm's similar artists for the ones they share,
+// minus anyone either of them already plays. Needs a Last.fm key.
+export async function discoverSimilar(seeds, known, keyOf, apiKey, limit = 10) {
+  const base = "https://ws.audioscrobbler.com/2.0/?format=json&autocorrect=1" + `&api_key=${encodeURIComponent(apiKey)}`;
+  const pool = new Map();
+  for (const seed of seeds) {
+    let data;
+    try {
+      data = await fetchJson(`${base}&method=artist.getsimilar&limit=40&artist=${encodeURIComponent(seed)}`);
+    } catch {
+      continue;
+    }
+    for (const s of (data.similarartists && data.similarartists.artist) || []) {
+      const key = keyOf(s.name);
+      if (!key || known.has(key)) continue;
+      const p = pool.get(key) || { name: s.name, score: 0, why: [] };
+      p.score += Number(s.match) || 0;
+      if (p.why.length < 2) p.why.push(seed);
+      pool.set(key, p);
+    }
+  }
+  const top = [...pool.values()].sort((a, b) => b.score - a.score).slice(0, limit);
+  await Promise.all(
+    top.map(async (p) => {
+      try {
+        const d = await fetchJson(`${base}&method=artist.gettoptracks&limit=1&artist=${encodeURIComponent(p.name)}`);
+        p.song = (d.toptracks && d.toptracks.track && d.toptracks.track[0] && d.toptracks.track[0].name) || "";
+      } catch {
+        p.song = "";
+      }
+    }),
+  );
+  return top;
+}
