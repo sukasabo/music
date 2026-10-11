@@ -7,7 +7,7 @@
   <meta name="description" content="How alike are Jason's Spotify and Olivia's YouTube Music listening? Genres, artists and a similarity score.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@500;600&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
   <script type="module" src="app.js"></script>
@@ -15,8 +15,8 @@
 <body>
   <main class="wrap">
     <header class="masthead">
-      <p class="eyebrow">Spotify &middot; YouTube Music</p>
-      <h1>Jason <em>&amp;</em> Olivia&rsquo;s<span class="h1-sub">Music Analysis</span></h1>
+      <p class="eyebrow">Spotify &times; YouTube Music</p>
+      <h1>Jason <em>&amp;</em> Olivia<span class="h1-sub">Music analysis</span></h1>
       <p class="lede">How alike are Jason&rsquo;s Spotify and Olivia&rsquo;s YouTube Music? Add both exports and see your genres side by side.</p>
       <p class="fine">Your files are read in this browser and never uploaded. Only artist names are sent to the genre database.</p>
     </header>
@@ -28,7 +28,7 @@
 
     <div id="setup">
       <section class="step" aria-labelledby="step1">
-        <h2 id="step1"><span class="num">I.</span> Your exports</h2>
+        <h2 id="step1"><span class="num">01</span> Your exports</h2>
         <div class="drops">
           <div class="drop" data-service="spotify" tabindex="0" role="button" aria-describedby="sp-help">
             <div class="drop-head"><span class="service">Jason<small>Spotify</small></span><span class="drop-cta">Choose files</span></div>
@@ -68,7 +68,7 @@
       </section>
 
       <section class="step" aria-labelledby="step2">
-        <h2 id="step2"><span class="num">II.</span> Genres</h2>
+        <h2 id="step2"><span class="num">02</span> Genres</h2>
         <div class="options">
           <label>Genre source
             <select id="source">
@@ -104,7 +104,7 @@
 
     <section id="results" hidden aria-labelledby="res-title">
       <div class="results-head">
-        <h2 id="res-title"><span class="num" id="res-num">III.</span> The verdict</h2>
+        <h2 id="res-title"><span class="num" id="res-num">03</span> Results</h2>
         <div class="share">
           <button id="copy-link" class="btn ghost small">Copy link</button>
           <button id="save-image" class="btn ghost small">Save image</button>

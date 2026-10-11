@@ -472,124 +472,102 @@ async function drawCard(r) {
   const muted = "#74808e";
   const steel = "#9fb3c8";
   const rule = "#262d36";
-  const serif = '"Bodoni Moda", "Didot", Georgia, serif';
+  const display = '"Inter Tight", "Inter", system-ui, sans-serif';
   const sans = '"Inter", system-ui, sans-serif';
+  const mono = '"IBM Plex Mono", ui-monospace, monospace';
+  const SP = "#5b8bd0";
+  const YT = "#b98043";
   const M = 90;
 
   c.fillStyle = "#0e1115";
   c.fillRect(0, 0, W, H);
-  c.textAlign = "center";
   c.textBaseline = "alphabetic";
+  c.textAlign = "left";
 
-  const spaced = (text, x, y, spacing) => {
+  const text = (t, x, y, font, color, spacing = 0) => {
+    c.font = font;
+    c.fillStyle = color;
     c.letterSpacing = `${spacing}px`;
-    c.fillText(text, x, y);
+    c.fillText(t, x, y);
     c.letterSpacing = "0px";
   };
-  const line = (y, color = "#8d9bab", x1 = M, x2 = W - M) => {
-    c.fillStyle = color;
-    c.fillRect(x1, y, x2 - x1, 1.5);
+  const line = (y, x1 = M, x2 = W - M) => {
+    c.fillStyle = rule;
+    c.fillRect(x1, y, x2 - x1, 2);
   };
 
-  c.fillStyle = steel;
-  c.font = `500 20px ${sans}`;
-  spaced("SPOTIFY  ·  YOUTUBE MUSIC", W / 2, 112, 5);
-  // "Jason & Olivia's" with an italic ampersand.
-  const parts = [[`${PEOPLE.spotify} `, "", ink], ["& ", "italic ", steel], [`${PEOPLE.youtube}’s`, "", ink]];
-  const widths = parts.map(([t, style]) => {
-    c.font = `${style}400 80px ${serif}`;
-    return c.measureText(t).width;
-  });
-  let x = (W - widths.reduce((a, w) => a + w, 0)) / 2;
-  c.textAlign = "left";
-  parts.forEach(([t, style, color], i) => {
-    c.font = `${style}400 80px ${serif}`;
-    c.fillStyle = color;
-    c.fillText(t, x, 205);
-    x += widths[i];
-  });
-  c.textAlign = "center";
-  c.fillStyle = ink2;
-  c.font = `500 20px ${sans}`;
-  spaced("MUSIC ANALYSIS", W / 2, 250, 7);
-  line(282);
-  line(289);
+  // Header
+  text("SPOTIFY × YOUTUBE MUSIC", M, 120, `500 22px ${mono}`, muted, 1);
+  c.font = `600 84px ${display}`;
+  c.letterSpacing = "-3px";
+  const first = `${PEOPLE.spotify} `;
+  const wFirst = c.measureText(first).width;
+  const wAmp = c.measureText("& ").width;
+  c.letterSpacing = "0px";
+  text(first, M, 212, `600 84px ${display}`, ink, -3);
+  text("& ", M + wFirst, 212, `500 84px ${display}`, muted, -3);
+  text(PEOPLE.youtube, M + wFirst + wAmp, 212, `600 84px ${display}`, ink, -3);
+  text("Music analysis", M, 262, `500 34px ${display}`, muted, -0.5);
+  line(312);
 
-  c.fillStyle = ink;
-  c.font = `400 210px ${serif}`;
-  c.fillText(score(r.scores.overall), W / 2, 500);
-  c.fillStyle = muted;
-  c.font = `600 20px ${sans}`;
-  spaced("OVERALL SIMILARITY", W / 2, 548, 5);
-  c.fillStyle = steel;
-  c.font = `italic 400 42px ${serif}`;
-  c.fillText(verdict(r.scores.overall), W / 2, 612);
+  // Overall score
+  text(score(r.scores.overall), M - 8, 545, `600 240px ${display}`, ink, -12);
+  text("OVERALL SIMILARITY", M, 600, `500 20px ${mono}`, muted, 1);
+  text(verdict(r.scores.overall), M, 650, `500 40px ${display}`, steel, -0.5);
 
-  line(668, rule);
+  // Three sub-scores
+  line(708);
   const subs = [["GENRE MATCH", r.scores.genre], ["GENRE FAMILIES", r.scores.family], ["ARTISTS", r.scores.artist]];
   const colW = (W - 2 * M) / 3;
   subs.forEach(([label, v], i) => {
-    const cx = M + colW * i + colW / 2;
-    c.fillStyle = ink;
-    c.font = `400 58px ${serif}`;
-    c.fillText(score(v), cx, 752);
-    c.fillStyle = ink2;
-    c.font = `600 17px ${sans}`;
-    spaced(label, cx, 790, 3.5);
-    if (i) c.fillRect(M + colW * i, 700, 1.5, 100);
+    const x = M + colW * i + (i ? 28 : 0);
+    text(label, x, 760, `500 18px ${mono}`, muted, 1);
+    text(score(v), x, 830, `600 64px ${display}`, ink, -2.5);
+    if (i) {
+      c.fillStyle = rule;
+      c.fillRect(M + colW * i, 730, 2, 110);
+    }
   });
-  line(830, rule);
+  line(866);
 
-  // Top genres as paired bars.
+  // Top genres as paired bars
   const rows = r.genres.slice(0, 6);
   const max = Math.max(...rows.flatMap((g) => [g.s, g.y]), 0.0001);
-  const labelW = 300;
+  const labelW = 260;
   const barX = M + labelW + 24;
   const barMax = W - M - barX - 70;
-  let y = 890;
-  c.textAlign = "left";
-  c.fillStyle = ink2;
-  c.font = `600 18px ${sans}`;
-  spaced("TOP GENRES", M, y, 4);
-  c.fillStyle = "#5b8bd0";
-  c.fillRect(W - M - 340, y - 8, 22, 4);
-  c.fillStyle = "#b98043";
-  c.fillRect(W - M - 180, y - 8, 22, 4);
-  c.fillStyle = ink2;
-  c.font = `400 19px ${sans}`;
-  c.fillText(PEOPLE.spotify, W - M - 310, y);
-  c.fillText(PEOPLE.youtube, W - M - 150, y);
-  y += 42;
+  let y = 920;
+  text("TOP GENRES", M, y, `500 18px ${mono}`, muted, 1);
+  c.fillStyle = SP;
+  c.fillRect(W - M - 300, y - 8, 22, 5);
+  c.fillStyle = YT;
+  c.fillRect(W - M - 150, y - 8, 22, 5);
+  text(PEOPLE.spotify, W - M - 270, y, `500 20px ${sans}`, ink2);
+  text(PEOPLE.youtube, W - M - 120, y, `500 20px ${sans}`, ink2);
+  y += 40;
   for (const g of rows) {
-    c.fillStyle = ink;
-    c.font = `400 27px ${serif}`;
-    c.textAlign = "right";
+    c.font = `500 24px ${sans}`;
     let name = g.g;
     while (c.measureText(name).width > labelW && name.length > 3) name = name.slice(0, -2) + "…";
-    c.fillText(name, M + labelW, y + 16);
+    c.textAlign = "right";
+    text(name, M + labelW, y + 16, `500 24px ${sans}`, ink2);
     c.textAlign = "left";
-    [[g.s, "#5b8bd0", 0], [g.y, "#b98043", 18]].forEach(([v, color, dy]) => {
+    [[g.s, SP, 0], [g.y, YT, 18]].forEach(([v, color, dy]) => {
       const w = Math.max(2, (barMax * v) / max);
       c.fillStyle = color;
       c.beginPath();
       c.roundRect(barX, y + dy - 2, w, 11, [0, 5, 5, 0]);
       c.fill();
-      c.fillStyle = ink2;
-      c.font = `400 16px ${sans}`;
-      c.fillText(pct(v), barX + w + 10, y + dy + 8);
+      text(pct(v), barX + w + 10, y + dy + 8, `400 16px ${mono}`, ink2);
     });
-    y += 56;
+    y += 52;
   }
 
-  line(H - 92, rule);
-  c.textAlign = "center";
-  c.fillStyle = muted;
-  c.font = `400 19px ${sans}`;
+  line(H - 92);
   const both = r.shared.slice(0, 3).map((a) => a.n).join(", ");
-  c.fillText(
+  text(
     r.sharedCount ? `${r.sharedCount.toLocaleString()} artists you both play${both ? `, including ${both}` : ""}` : "No artists in common",
-    W / 2,
-    H - 50,
+    M, H - 48, `400 20px ${sans}`, muted,
   );
 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
