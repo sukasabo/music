@@ -3,9 +3,11 @@ import { lookupGenres } from "./genres.js";
 import { buildProfile, dateSpan, topArtists, compare } from "./compare.js";
 
 const NAMES = { spotify: "Spotify", youtube: "YouTube Music" };
-// Whose listening each service holds.
-const PEOPLE = { spotify: "Jason", youtube: "Olivia" };
-const TITLE = `${PEOPLE.spotify} & ${PEOPLE.youtube}'s Music Analysis`;
+// Whose listening each service holds; filled in from the name boxes.
+// Until a name is typed, people go by their service.
+const DEFAULT_PEOPLE = { spotify: "Spotify", youtube: "YouTube" };
+const PEOPLE = { ...DEFAULT_PEOPLE };
+const title = () => `${PEOPLE.spotify} & ${PEOPLE.youtube}: Music Analysis`;
 const CHART_ROWS = 15;
 
 // service -> [{ name, label, entries }]
@@ -20,10 +22,12 @@ const statusEl = $("#status");
 /* ---------- Loading files ---------- */
 
 for (const zone of document.querySelectorAll(".drop")) {
-  const input = zone.querySelector("input");
-  zone.addEventListener("click", () => input.click());
+  const input = zone.querySelector("input[type=file]");
+  zone.addEventListener("click", (e) => {
+    if (!e.target.closest(".service")) input.click(); // the name box sits inside the drop area
+  });
   zone.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); }
+    if (e.target === zone && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); input.click(); }
   });
   input.addEventListener("change", () => { addFiles([...input.files], zone.dataset.service); input.value = ""; });
   zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
@@ -144,6 +148,38 @@ function refreshReady() {
   }
 }
 
+/* ---------- Names ---------- */
+
+const nameInputs = document.querySelectorAll(".name");
+
+function setNames(names) {
+  for (const svc of Object.keys(DEFAULT_PEOPLE)) PEOPLE[svc] = (names[svc] || "").trim() || DEFAULT_PEOPLE[svc];
+  for (const el of document.querySelectorAll("[data-name]")) el.textContent = PEOPLE[el.dataset.name];
+  document.title = title();
+}
+
+function namesFromInputs() {
+  return Object.fromEntries([...nameInputs].map((i) => [i.dataset.for, i.value]));
+}
+
+try {
+  const saved = JSON.parse(localStorage.getItem("music-compare:names") || "{}");
+  for (const i of nameInputs) i.value = saved[i.dataset.for] || "";
+} catch { /* storage blocked */ }
+setNames(namesFromInputs());
+
+for (const i of nameInputs) {
+  i.addEventListener("input", () => {
+    const names = namesFromInputs();
+    setNames(names);
+    try { localStorage.setItem("music-compare:names", JSON.stringify(names)); } catch { /* ignore */ }
+    if (report && !$("#setup").hidden) {
+      report.names = { ...PEOPLE };
+      render();
+    }
+  });
+}
+
 /* ---------- Options ---------- */
 
 const sourceEl = $("#source");
@@ -239,6 +275,7 @@ function buildReport(r, genreMap, { spotify, youtube, range, source }) {
   return {
     v: 1,
     at: Date.now(),
+    names: { ...PEOPLE },
     scores: {
       overall: round(r.scores.overall),
       genre: round(r.scores.genreScore),
@@ -252,7 +289,8 @@ function buildReport(r, genreMap, { spotify, youtube, range, source }) {
     onlySp: people(r.onlySpotify, 10, (a) => ({ s: round(a.share) })),
     onlyYt: people(r.onlyYoutube, 10, (a) => ({ y: round(a.share) })),
     notes:
-      `${describe(spotify, `${PEOPLE.spotify} (Spotify)`, r.coverage.spotify)} ${describe(youtube, `${PEOPLE.youtube} (YouTube Music)`, r.coverage.youtube)}` +
+      // {spotify} and {youtube} become the names when shown, so renaming later still works.
+      `${describe(spotify, "{spotify} (Spotify)", r.coverage.spotify)} ${describe(youtube, "{youtube} (YouTube Music)", r.coverage.youtube)}` +
       (range ? " Only the dates both services cover are compared." : "") +
       ` Genre data from ${source === "lastfm" ? "Last.fm" : "MusicBrainz"}.`,
   };
@@ -270,6 +308,7 @@ for (const tab of document.querySelectorAll(".seg button")) {
 
 function render() {
   const r = report;
+  setNames(r.names || {});
   $("#results").hidden = false;
   $("#s-overall").textContent = score(r.scores.overall);
   $("#s-verdict").textContent = verdict(r.scores.overall);
@@ -280,7 +319,7 @@ function render() {
   renderChart();
   renderLeans();
   renderArtists();
-  $("#coverage").textContent = r.notes;
+  $("#coverage").textContent = r.notes.replace(/\{(spotify|youtube)\}/g, (_, svc) => PEOPLE[svc]);
   $("#share-status").textContent = "";
 }
 
@@ -422,7 +461,7 @@ $("#copy-link").addEventListener("click", async () => {
   }
   try {
     if (navigator.share && matchMedia("(pointer: coarse)").matches) {
-      await navigator.share({ title: TITLE, text: shareText(), url });
+      await navigator.share({ title: title(), text: shareText(), url });
       return;
     }
     await navigator.clipboard.writeText(url);
@@ -436,11 +475,11 @@ $("#copy-link").addEventListener("click", async () => {
 $("#save-image").addEventListener("click", async () => {
   shareStatus.textContent = "Drawing…";
   const blob = await drawCard(report);
-  const file = new File([blob], "jason-olivia-music.png", { type: "image/png" });
+  const file = new File([blob], `${slug(PEOPLE.spotify)}-${slug(PEOPLE.youtube)}-music.png`, { type: "image/png" });
   shareStatus.textContent = "";
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer: coarse)").matches) {
-      await navigator.share({ files: [file], title: TITLE, text: shareText() });
+      await navigator.share({ files: [file], title: title(), text: shareText() });
       return;
     }
   } catch (err) {
@@ -644,3 +683,4 @@ function fmtDate(t) {
   return new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 function setStatus(text) { statusEl.textContent = text; }
+function slug(text) { return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || "music"; }

@@ -71,6 +71,13 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 1.6rem; letter-sp
 .drop.over { border-color: var(--ink); box-shadow: 0 14px 40px -20px rgb(0 0 0 / .9); }
 .drop-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .service { font-family: var(--display); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.name {
+  font: inherit; color: var(--ink); background: transparent; border: 0; border-bottom: 1px dashed var(--rule-strong);
+  padding: 0 0 2px; width: 100%; max-width: 14ch; border-radius: 0;
+}
+.name::placeholder { color: var(--muted); }
+.name:focus { outline: none; border-bottom: 1px solid var(--gold); }
+.service { cursor: text; }
 .service small {
   display: block; font-family: var(--mono); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--muted); margin-top: 6px;
@@ -100,13 +107,13 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 1.6rem; letter-sp
   flex-direction: row; align-items: center; gap: 10px; flex-basis: 100%;
   font-family: var(--sans); text-transform: none; letter-spacing: 0; font-size: 0.92rem; font-weight: 400; color: var(--ink);
 }
-select, input[type="text"] {
+select, #apikey {
   font: 400 0.95rem var(--sans); color: var(--ink); background: transparent; max-width: 100%;
   border: 0; border-bottom: 1px solid var(--ink-2); border-radius: 0; padding: 6px 2px;
 }
-select:focus, input[type="text"]:focus { outline: none; border-bottom-color: var(--gold); }
+select:focus, #apikey:focus { outline: none; border-bottom-color: var(--gold); }
 select option { background: var(--raised); color: var(--ink); }
-input[type="text"] { width: 300px; }
+#apikey { width: 300px; }
 input[type="checkbox"] { accent-color: var(--ink); width: 16px; height: 16px; }
 
 .go-row { display: flex; align-items: center; gap: 14px; margin-top: 30px; flex-wrap: wrap; }
@@ -230,6 +237,6 @@ td.n, th.n { text-align: right; }
   .pair { grid-template-columns: 100px 1fr; gap: 10px; }
   .pair-name { font-size: 1rem; }
   .options label { flex-basis: 100%; }
-  select, input[type="text"] { width: 100%; }
+  select, #apikey { width: 100%; }
   .panel { margin-top: 44px; }
 }

@@ -1,6 +1,7 @@
-# Jason & Olivia's Music Analysis
+# Music Analysis
 
-How alike are Jason's Spotify listening and Olivia's YouTube Music listening? (Names are set in `PEOPLE` at the top of `app.js`.)
+How alike is two people's music, one on Spotify and one on YouTube Music? Type both names into the upload boxes;
+they're used throughout the results, the share link and the share image.
 
 Drop in your Spotify data export and your Google Takeout export. The page counts plays per artist,
 looks up each artist's genres in a public music database, and shows:
