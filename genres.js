@@ -2,7 +2,9 @@
 // MusicBrainz needs no key but allows about one request a second.
 // Last.fm is faster and has richer tags, but needs a free API key.
 
-const CACHE_PREFIX = "music-compare:genres:v1:";
+const CACHE_PREFIX = "music-compare:genres:v2:";
+// Lookups from the first version: kept when they found genres, retried when they didn't.
+const OLD_CACHE_PREFIX = "music-compare:genres:v1:";
 const MAX_TAGS_PER_ARTIST = 6;
 
 // Tags people use that aren't genres.
@@ -15,6 +17,7 @@ const NOT_GENRES = new Set([
   "my music", "check out", "spotify", "under 2000 listeners", "all", "music", "good",
   "singer-songwriter-ish", "chill", "sexy", "cover", "covers", "instrumental", "live",
   "producer", "dj", "composer", "rapper", "singer", "band", "group", "duo", "artist",
+  "gen z", "millennial", "tiktok", "viral", "spotify singles",
 ]);
 
 const SYNONYMS = {
@@ -81,7 +84,9 @@ function toWeights(tags) {
 function cacheGet(source, key) {
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + source + ":" + key);
-    return raw ? JSON.parse(raw) : undefined;
+    if (raw) return JSON.parse(raw);
+    const old = JSON.parse(localStorage.getItem(OLD_CACHE_PREFIX + source + ":" + key) || "null");
+    return old && Object.keys(old).length ? old : undefined;
   } catch {
     return undefined;
   }
@@ -110,15 +115,27 @@ async function fetchJson(url, tries = 3) {
   throw new Error("rate limited");
 }
 
+// MusicBrainz allows about one request a second, across all calls.
+let mbNext = 0;
+async function mbFetch(url) {
+  const wait = mbNext - Date.now();
+  if (wait > 0) await sleep(wait);
+  mbNext = Date.now() + 1100;
+  return fetchJson(url);
+}
+
 async function musicBrainzTags(name) {
   const q = encodeURIComponent(`artist:"${name.replace(/"/g, "")}"`);
-  const data = await fetchJson(`https://musicbrainz.org/ws/2/artist/?query=${q}&fmt=json&limit=3`);
-  const artists = (data.artists || []).filter((a) => a.score >= 90);
-  // Prefer an exact-name hit that has tags.
-  const pick =
-    artists.find((a) => a.name.toLowerCase() === name.toLowerCase() && a.tags && a.tags.length) ||
-    artists.find((a) => a.tags && a.tags.length);
-  return pick ? pick.tags : [];
+  const data = await mbFetch(`https://musicbrainz.org/ws/2/artist/?query=${q}&fmt=json&limit=5`);
+  const artists = (data.artists || []).filter((a) => a.score >= 85);
+  const exact = artists.filter((a) => a.name.toLowerCase() === name.toLowerCase());
+  const pool = exact.length ? exact : artists;
+  const tagged = pool.find((a) => a.tags && a.tags.length);
+  if (tagged) return tagged.tags;
+  // Search results often leave tags out; the full record has curated genres too.
+  if (!pool.length) return [];
+  const full = await mbFetch(`https://musicbrainz.org/ws/2/artist/${pool[0].id}?inc=genres+tags&fmt=json`);
+  return full.genres && full.genres.length ? full.genres : full.tags || [];
 }
 
 async function lastFmTags(name, apiKey) {
@@ -169,10 +186,7 @@ export async function lookupGenres(artists, { source, apiKey, onProgress, signal
   } else {
     for (const a of todo) {
       if (signal.aborted) break;
-      const started = Date.now();
-      await lookupOne(a);
-      const wait = 1100 - (Date.now() - started);
-      if (wait > 0) await sleep(wait);
+      await lookupOne(a); // mbFetch keeps to the rate limit
     }
   }
   return result;

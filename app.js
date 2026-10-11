@@ -254,8 +254,10 @@ async function run() {
     report = buildReport(result, genreMap, { spotify, youtube, range, source, recs });
     render();
     const found = [...genreMap.values()].filter((w) => Object.keys(w).length).length;
+    // Plays matter more than artist count: the misses are mostly artists with a play or two.
     setStatus(
-      `${controller.signal.aborted ? "Stopped early. " : ""}Found genres for ${found} of ${wanted.size} artists.`
+      `${controller.signal.aborted ? "Stopped early. " : ""}Found genres for ${found} of ${wanted.size} artists, ` +
+        `covering ${pct(result.coverage.spotify)} of ${PEOPLE.spotify}'s plays and ${pct(result.coverage.youtube)} of ${PEOPLE.youtube}'s.`
     );
     $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (err) {

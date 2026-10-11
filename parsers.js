@@ -15,8 +15,15 @@ export function artistKey(name) {
     .replace(/^the(?=...)/, "");
 }
 
+// YouTube channel names carry extras: "Adele - Topic", "AdeleVEVO", "Adele Official".
 export function cleanArtist(name) {
-  return String(name || "").replace(/\s+-\s+Topic$/i, "").trim();
+  let n = String(name || "")
+    .replace(/\s+-\s+Topic$/i, "")
+    .replace(/\s*[-|(]?\s*official(\s+(artist\s+)?channel)?\)?$/i, "")
+    .trim();
+  // "TaylorSwiftVEVO" -> "Taylor Swift"
+  if (/\S+VEVO$/.test(n)) n = n.replace(/VEVO$/, "").replace(/([a-z])([A-Z])/g, "$1 $2");
+  return n.trim() || String(name || "").trim();
 }
 
 // Files worth opening inside a big export zip. Everything else is skipped.
