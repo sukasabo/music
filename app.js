@@ -215,7 +215,7 @@ async function run() {
     return;
   }
 
-  const n = Number($("#topn").value);
+  const n = $("#topn").value === "all" ? Infinity : Number($("#topn").value);
   const wanted = new Map();
   for (const a of [...topArtists(spotify, n), ...topArtists(youtube, n)]) if (!wanted.has(a.key)) wanted.set(a.key, a);
 
@@ -233,7 +233,7 @@ async function run() {
       onProgress: (done, total) => {
         progress.firstElementChild.style.width = `${(100 * done) / total}%`;
         const left = total - done;
-        const eta = source === "musicbrainz" && left > 5 ? ` · about ${Math.ceil((left * 1.1) / 60)} min left` : "";
+        const eta = source === "musicbrainz" && left > 5 ? ` · about ${duration(left * 1.1)} left` : "";
         setStatus(`Looking up genres: ${done} of ${total} artists${eta}`);
       },
     });
@@ -683,4 +683,8 @@ function fmtDate(t) {
   return new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 function setStatus(text) { statusEl.textContent = text; }
+function duration(seconds) {
+  const min = Math.ceil(seconds / 60);
+  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`;
+}
 function slug(text) { return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || "music"; }

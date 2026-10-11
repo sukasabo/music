@@ -57,7 +57,8 @@ If a service has no play history, its saved songs are used instead.
 ## Genre sources
 
 - **MusicBrainz** (default): free with no key, but limited to about one artist a second, so the top 100 artists
-  from each service take two to three minutes the first time.
+  from each service take two to three minutes the first time, and **All artists** can take an hour or more
+  for a big library.
 - **Last.fm**: needs a free [API key](https://www.last.fm/api/account/create); faster and with richer tags.
 
 Lookups are remembered in the browser, so running it again is quick. Tags that aren't genres
