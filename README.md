@@ -1,6 +1,6 @@
-# Music Compare
+# Jason & Olivia's Music Analysis
 
-Compare your Spotify listening with your YouTube Music listening by genre.
+How alike are Jason's Spotify listening and Olivia's YouTube Music listening? (Names are set in `PEOPLE` at the top of `app.js`.)
 
 Drop in your Spotify data export and your Google Takeout export. The page counts plays per artist,
 looks up each artist's genres in a public music database, and shows:

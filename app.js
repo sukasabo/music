@@ -3,6 +3,9 @@ import { lookupGenres } from "./genres.js";
 import { buildProfile, dateSpan, topArtists, compare } from "./compare.js";
 
 const NAMES = { spotify: "Spotify", youtube: "YouTube Music" };
+// Whose listening each service holds.
+const PEOPLE = { spotify: "Jason", youtube: "Olivia" };
+const TITLE = `${PEOPLE.spotify} & ${PEOPLE.youtube}'s Music Analysis`;
 const CHART_ROWS = 15;
 
 // service -> [{ name, label, entries }]
@@ -137,7 +140,7 @@ function refreshReady() {
   if (range) $("#range-text").textContent = `(${fmtDate(range[0])} to ${fmtDate(range[1])})`;
   if (!ready) {
     const missing = Object.keys(loaded).filter((s) => !loaded[s].length).map((s) => NAMES[s]);
-    setStatus(missing.length < 2 ? `Add your ${missing[0]} export to compare.` : "");
+    setStatus(missing.length < 2 ? `Add the ${missing[0]} export to compare.` : "");
   }
 }
 
@@ -249,7 +252,7 @@ function buildReport(r, genreMap, { spotify, youtube, range, source }) {
     onlySp: people(r.onlySpotify, 10, (a) => ({ s: round(a.share) })),
     onlyYt: people(r.onlyYoutube, 10, (a) => ({ y: round(a.share) })),
     notes:
-      `${describe(spotify, "Spotify", r.coverage.spotify)} ${describe(youtube, "YouTube Music", r.coverage.youtube)}` +
+      `${describe(spotify, `${PEOPLE.spotify} (Spotify)`, r.coverage.spotify)} ${describe(youtube, `${PEOPLE.youtube} (YouTube Music)`, r.coverage.youtube)}` +
       (range ? " Only the dates both services cover are compared." : "") +
       ` Genre data from ${source === "lastfm" ? "Last.fm" : "MusicBrainz"}.`,
   };
@@ -273,7 +276,7 @@ function render() {
   $("#s-genre").textContent = score(r.scores.genre);
   $("#s-family").textContent = score(r.scores.family);
   $("#s-artist").textContent = score(r.scores.artist);
-  $("#s-artist-note").textContent = `${r.sharedCount.toLocaleString()} on both, weighted by plays`;
+  $("#s-artist-note").textContent = `${r.sharedCount.toLocaleString()} you both play, weighted by plays`;
   renderChart();
   renderLeans();
   renderArtists();
@@ -313,7 +316,7 @@ function renderChart() {
   table.innerHTML =
     `<thead><tr><th>${withFamily ? "Genre" : "Family"}</th>` +
     (withFamily ? "<th>Family</th>" : "") +
-    '<th class="n">Spotify</th><th class="n">YouTube Music</th></tr></thead>';
+    `<th class="n">${PEOPLE.spotify}</th><th class="n">${PEOPLE.youtube}</th></tr></thead>`;
   const body = document.createElement("tbody");
   for (const row of rows) {
     const tr = document.createElement("tr");
@@ -353,7 +356,7 @@ function renderArtists() {
   fillList("#shared", report.shared, (a) => [a.n, a.t.join(", "), `${pct(a.s)} · ${pct(a.y)}`]);
   fillList("#only-sp", report.onlySp, (a) => [a.n, a.t.join(", "), pct(a.s)]);
   fillList("#only-yt", report.onlyYt, (a) => [a.n, a.t.join(", "), pct(a.y)]);
-  $("#shared-title").textContent = `Artists on both (${report.sharedCount.toLocaleString()})`;
+  $("#shared-title").textContent = `Artists you both play (${report.sharedCount.toLocaleString()})`;
 }
 
 function fillList(sel, items, parts) {
@@ -419,7 +422,7 @@ $("#copy-link").addEventListener("click", async () => {
   }
   try {
     if (navigator.share && matchMedia("(pointer: coarse)").matches) {
-      await navigator.share({ title: "Spotify & YouTube Music", text: shareText(), url });
+      await navigator.share({ title: TITLE, text: shareText(), url });
       return;
     }
     await navigator.clipboard.writeText(url);
@@ -433,11 +436,11 @@ $("#copy-link").addEventListener("click", async () => {
 $("#save-image").addEventListener("click", async () => {
   shareStatus.textContent = "Drawing…";
   const blob = await drawCard(report);
-  const file = new File([blob], "music-compare.png", { type: "image/png" });
+  const file = new File([blob], "jason-olivia-music.png", { type: "image/png" });
   shareStatus.textContent = "";
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer: coarse)").matches) {
-      await navigator.share({ files: [file], title: "Spotify & YouTube Music", text: shareText() });
+      await navigator.share({ files: [file], title: TITLE, text: shareText() });
       return;
     }
   } catch (err) {
@@ -452,10 +455,10 @@ $("#save-image").addEventListener("click", async () => {
 });
 
 function shareText() {
-  return `My Spotify and YouTube Music are ${score(report.scores.overall)} alike: ${verdict(report.scores.overall).toLowerCase()}.`;
+  return `${PEOPLE.spotify} and ${PEOPLE.youtube}'s music is ${score(report.scores.overall)} alike: ${verdict(report.scores.overall).toLowerCase()}.`;
 }
 
-// A portrait card (1080 × 1350) in the page's light paper style.
+// A portrait card (1080 × 1350) in the page's slate-black style.
 async function drawCard(r) {
   await document.fonts.ready;
   const W = 1080;
@@ -464,16 +467,16 @@ async function drawCard(r) {
   canvas.width = W;
   canvas.height = H;
   const c = canvas.getContext("2d");
-  const ink = "#1c1a17";
-  const ink2 = "#5b564d";
-  const muted = "#877f72";
-  const gold = "#8f723a";
-  const rule = "#ddd5c6";
-  const serif = '"Cormorant Garamond", Georgia, serif';
-  const sans = '"DM Sans", system-ui, sans-serif';
+  const ink = "#e7ebf0";
+  const ink2 = "#aab5c2";
+  const muted = "#74808e";
+  const steel = "#9fb3c8";
+  const rule = "#262d36";
+  const serif = '"Bodoni Moda", "Didot", Georgia, serif';
+  const sans = '"Inter", system-ui, sans-serif';
   const M = 90;
 
-  c.fillStyle = "#f7f3ea";
+  c.fillStyle = "#0e1115";
   c.fillRect(0, 0, W, H);
   c.textAlign = "center";
   c.textBaseline = "alphabetic";
@@ -483,44 +486,43 @@ async function drawCard(r) {
     c.fillText(text, x, y);
     c.letterSpacing = "0px";
   };
-  const line = (y, color = ink, x1 = M, x2 = W - M) => {
+  const line = (y, color = "#8d9bab", x1 = M, x2 = W - M) => {
     c.fillStyle = color;
     c.fillRect(x1, y, x2 - x1, 1.5);
   };
 
-  c.fillStyle = gold;
-  c.font = `600 22px ${sans}`;
-  spaced("A LISTENING STUDY", W / 2, 128, 5);
-  c.fillStyle = ink;
-  c.font = `500 76px ${serif}`;
-  const left = "Spotify ";
-  const amp = "& ";
-  const right = "YouTube Music";
-  const wl = c.measureText(left).width;
-  c.font = `italic 500 76px ${serif}`;
-  const wa = c.measureText(amp).width;
-  c.font = `500 76px ${serif}`;
-  const wr = c.measureText(right).width;
-  let x = (W - wl - wa - wr) / 2;
+  c.fillStyle = steel;
+  c.font = `500 20px ${sans}`;
+  spaced("SPOTIFY  ·  YOUTUBE MUSIC", W / 2, 112, 5);
+  // "Jason & Olivia's" with an italic ampersand.
+  const parts = [[`${PEOPLE.spotify} `, "", ink], ["& ", "italic ", steel], [`${PEOPLE.youtube}’s`, "", ink]];
+  const widths = parts.map(([t, style]) => {
+    c.font = `${style}400 80px ${serif}`;
+    return c.measureText(t).width;
+  });
+  let x = (W - widths.reduce((a, w) => a + w, 0)) / 2;
   c.textAlign = "left";
-  c.fillText(left, x, 222);
-  c.font = `italic 500 76px ${serif}`;
-  c.fillStyle = gold;
-  c.fillText(amp, x + wl, 222);
-  c.font = `500 76px ${serif}`;
-  c.fillStyle = ink;
-  c.fillText(right, x + wl + wa, 222);
+  parts.forEach(([t, style, color], i) => {
+    c.font = `${style}400 80px ${serif}`;
+    c.fillStyle = color;
+    c.fillText(t, x, 205);
+    x += widths[i];
+  });
   c.textAlign = "center";
-  line(270);
-  line(277);
+  c.fillStyle = ink2;
+  c.font = `500 20px ${sans}`;
+  spaced("MUSIC ANALYSIS", W / 2, 250, 7);
+  line(282);
+  line(289);
 
-  c.font = `500 230px ${serif}`;
+  c.fillStyle = ink;
+  c.font = `400 210px ${serif}`;
   c.fillText(score(r.scores.overall), W / 2, 500);
   c.fillStyle = muted;
   c.font = `600 20px ${sans}`;
   spaced("OVERALL SIMILARITY", W / 2, 548, 5);
-  c.fillStyle = gold;
-  c.font = `italic 500 46px ${serif}`;
+  c.fillStyle = steel;
+  c.font = `italic 400 42px ${serif}`;
   c.fillText(verdict(r.scores.overall), W / 2, 612);
 
   line(668, rule);
@@ -529,7 +531,7 @@ async function drawCard(r) {
   subs.forEach(([label, v], i) => {
     const cx = M + colW * i + colW / 2;
     c.fillStyle = ink;
-    c.font = `500 64px ${serif}`;
+    c.font = `400 58px ${serif}`;
     c.fillText(score(v), cx, 752);
     c.fillStyle = ink2;
     c.font = `600 17px ${sans}`;
@@ -549,24 +551,24 @@ async function drawCard(r) {
   c.fillStyle = ink2;
   c.font = `600 18px ${sans}`;
   spaced("TOP GENRES", M, y, 4);
-  c.fillStyle = "#2f5d9e";
+  c.fillStyle = "#5b8bd0";
   c.fillRect(W - M - 340, y - 8, 22, 4);
-  c.fillStyle = "#c0562f";
+  c.fillStyle = "#b98043";
   c.fillRect(W - M - 180, y - 8, 22, 4);
   c.fillStyle = ink2;
   c.font = `400 19px ${sans}`;
-  c.fillText("Spotify", W - M - 310, y);
-  c.fillText("YouTube Music", W - M - 150, y);
+  c.fillText(PEOPLE.spotify, W - M - 310, y);
+  c.fillText(PEOPLE.youtube, W - M - 150, y);
   y += 42;
   for (const g of rows) {
     c.fillStyle = ink;
-    c.font = `500 30px ${serif}`;
+    c.font = `400 27px ${serif}`;
     c.textAlign = "right";
     let name = g.g;
     while (c.measureText(name).width > labelW && name.length > 3) name = name.slice(0, -2) + "…";
     c.fillText(name, M + labelW, y + 16);
     c.textAlign = "left";
-    [[g.s, "#2f5d9e", 0], [g.y, "#c0562f", 18]].forEach(([v, color, dy]) => {
+    [[g.s, "#5b8bd0", 0], [g.y, "#b98043", 18]].forEach(([v, color, dy]) => {
       const w = Math.max(2, (barMax * v) / max);
       c.fillStyle = color;
       c.beginPath();
@@ -585,7 +587,7 @@ async function drawCard(r) {
   c.font = `400 19px ${sans}`;
   const both = r.shared.slice(0, 3).map((a) => a.n).join(", ");
   c.fillText(
-    r.sharedCount ? `${r.sharedCount.toLocaleString()} artists on both${both ? `, including ${both}` : ""}` : "No artists in common",
+    r.sharedCount ? `${r.sharedCount.toLocaleString()} artists you both play${both ? `, including ${both}` : ""}` : "No artists in common",
     W / 2,
     H - 50,
   );
@@ -621,7 +623,7 @@ function showTip(e, row, anchor) {
   title.textContent = row.g;
   tip.append(title);
   if (row.f) tip.append(Object.assign(document.createElement("div"), { className: "fam", textContent: row.f }));
-  for (const [cls, label, v] of [["sp", "Spotify", row.s], ["yt", "YouTube Music", row.y]]) {
+  for (const [cls, label, v] of [["sp", PEOPLE.spotify, row.s], ["yt", PEOPLE.youtube, row.y]]) {
     const r = document.createElement("div");
     r.className = "row";
     r.innerHTML = `<i class="key ${cls}"></i>`;

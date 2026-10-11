@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Music Compare</title>
-  <meta name="description" content="Compare your Spotify and YouTube Music listening by genre, using your own data exports.">
+  <title>Jason &amp; Olivia's Music Analysis</title>
+  <meta name="description" content="How alike are Jason's Spotify and Olivia's YouTube Music listening? Genres, artists and a similarity score.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
   <script type="module" src="app.js"></script>
@@ -15,15 +15,15 @@
 <body>
   <main class="wrap">
     <header class="masthead">
-      <p class="eyebrow">A listening study</p>
-      <h1>Spotify <em>&amp;</em> YouTube&nbsp;Music</h1>
-      <p class="lede">How alike is what you play on each? Add your data exports and see your genres side by side.</p>
+      <p class="eyebrow">Spotify &middot; YouTube Music</p>
+      <h1>Jason <em>&amp;</em> Olivia&rsquo;s<span class="h1-sub">Music Analysis</span></h1>
+      <p class="lede">How alike are Jason&rsquo;s Spotify and Olivia&rsquo;s YouTube Music? Add both exports and see your genres side by side.</p>
       <p class="fine">Your files are read in this browser and never uploaded. Only artist names are sent to the genre database.</p>
     </header>
 
     <div id="shared-banner" class="banner" hidden>
-      <span>A shared report<span id="shared-date"></span>.</span>
-      <a id="make-own" href="./">Compare your own listening</a>
+      <span>A shared analysis<span id="shared-date"></span>.</span>
+      <a id="make-own" href="./">Run a new one</a>
     </div>
 
     <div id="setup">
@@ -31,13 +31,13 @@
         <h2 id="step1"><span class="num">I.</span> Your exports</h2>
         <div class="drops">
           <div class="drop" data-service="spotify" tabindex="0" role="button" aria-describedby="sp-help">
-            <div class="drop-head"><span class="service">Spotify</span><span class="drop-cta">Choose files</span></div>
+            <div class="drop-head"><span class="service">Jason<small>Spotify</small></span><span class="drop-cta">Choose files</span></div>
             <p id="sp-help">Drop the zip, the <code>StreamingHistory</code> JSON files, or a CSV</p>
             <input type="file" multiple accept=".zip,.json,.csv,.html" hidden>
             <ul class="files"></ul>
           </div>
           <div class="drop" data-service="youtube" tabindex="0" role="button" aria-describedby="yt-help">
-            <div class="drop-head"><span class="service">YouTube Music</span><span class="drop-cta">Choose files</span></div>
+            <div class="drop-head"><span class="service">Olivia<small>YouTube Music</small></span><span class="drop-cta">Choose files</span></div>
             <p id="yt-help">Drop the Google Takeout zip, or <code>watch-history.json</code> / <code>.html</code></p>
             <input type="file" multiple accept=".zip,.json,.csv,.html" hidden>
             <ul class="files"></ul>
@@ -146,9 +146,9 @@
           </div>
         </div>
         <div class="legend">
-          <span><i class="key sp"></i>Spotify</span>
-          <span><i class="key yt"></i>YouTube Music</span>
-          <span class="fine">share of each service's listening</span>
+          <span><i class="key sp"></i>Jason &middot; Spotify</span>
+          <span><i class="key yt"></i>Olivia &middot; YouTube Music</span>
+          <span class="fine">share of each person&rsquo;s listening</span>
         </div>
         <div id="chart" class="pairs"></div>
         <details class="table-view">
@@ -159,26 +159,26 @@
 
       <div class="grid2">
         <div class="panel">
-          <h3>Leans Spotify</h3>
+          <h3>More Jason</h3>
           <ol id="lean-sp" class="list"></ol>
         </div>
         <div class="panel">
-          <h3>Leans YouTube Music</h3>
+          <h3>More Olivia</h3>
           <ol id="lean-yt" class="list"></ol>
         </div>
       </div>
 
       <div class="panel">
-        <h3 id="shared-title">Artists on both</h3>
+        <h3 id="shared-title">Artists you both play</h3>
         <ol id="shared" class="list artists"></ol>
       </div>
       <div class="grid2">
         <div class="panel">
-          <h3>Only on Spotify</h3>
+          <h3>Only Jason</h3>
           <ol id="only-sp" class="list artists"></ol>
         </div>
         <div class="panel">
-          <h3>Only on YouTube Music</h3>
+          <h3>Only Olivia</h3>
           <ol id="only-yt" class="list artists"></ol>
         </div>
       </div>
