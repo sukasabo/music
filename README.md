@@ -13,6 +13,13 @@ looks up each artist's genres in a public music database, and shows:
 
 Everything runs in the browser. Your files are never uploaded; only artist names are sent to the genre database.
 
+## Sharing
+
+Under the results, **Copy link** makes a link to the report. The report itself is packed into the link
+(after the `#`), so there's no server and nothing is stored anywhere; whoever opens it sees the same
+results without your files. **Save image** downloads a portrait card for posting. On a phone, both open
+the share sheet. Links only work once the page is on a website, such as GitHub Pages.
+
 ## Run it
 
 No build step. Serve the folder with any static server:

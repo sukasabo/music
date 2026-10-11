@@ -5,118 +5,140 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Music Compare</title>
   <meta name="description" content="Compare your Spotify and YouTube Music listening by genre, using your own data exports.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap">
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
   <script type="module" src="app.js"></script>
 </head>
 <body>
   <main class="wrap">
-    <header class="top">
-      <h1>Music Compare</h1>
-      <p class="lede">How alike is your Spotify listening and your YouTube Music listening? Add your data exports and
-        see your genres side by side.</p>
-      <p class="fine">Your files are read in this browser and never uploaded. Only artist names are sent to the
-        genre database.</p>
+    <header class="masthead">
+      <p class="eyebrow">A listening study</p>
+      <h1>Spotify <em>&amp;</em> YouTube&nbsp;Music</h1>
+      <p class="lede">How alike is what you play on each? Add your data exports and see your genres side by side.</p>
+      <p class="fine">Your files are read in this browser and never uploaded. Only artist names are sent to the genre database.</p>
     </header>
 
-    <section class="step" aria-labelledby="step1">
-      <h2 id="step1"><span class="num">1</span> Add your exports</h2>
-      <div class="drops">
-        <div class="drop" data-service="spotify" tabindex="0" role="button" aria-describedby="sp-help">
-          <div class="drop-head"><span class="swatch sp"></span><strong>Spotify</strong></div>
-          <p id="sp-help">Drop the zip, the <code>StreamingHistory</code> JSON files, or a CSV</p>
-          <input type="file" multiple accept=".zip,.json,.csv,.html" hidden>
-          <ul class="files"></ul>
-        </div>
-        <div class="drop" data-service="youtube" tabindex="0" role="button" aria-describedby="yt-help">
-          <div class="drop-head"><span class="swatch yt"></span><strong>YouTube Music</strong></div>
-          <p id="yt-help">Drop the Google Takeout zip or <code>watch-history.json</code> / <code>.html</code></p>
-          <input type="file" multiple accept=".zip,.json,.csv,.html" hidden>
-          <ul class="files"></ul>
-        </div>
-      </div>
-      <details class="how">
-        <summary>Where do I get these files?</summary>
-        <div class="how-body">
-          <h3>Spotify</h3>
-          <ol>
-            <li>Go to <a href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener">spotify.com/account/privacy</a>.</li>
-            <li>Tick <em>Account data</em> (arrives in about 5 days) or <em>Extended streaming history</em> (up to 30 days, covers your whole account).</li>
-            <li>Download the zip from Spotify's email and drop it here as is.</li>
-          </ol>
-          <h3>YouTube Music</h3>
-          <ol>
-            <li>Go to <a href="https://takeout.google.com/" target="_blank" rel="noopener">takeout.google.com</a> and click <em>Deselect all</em>.</li>
-            <li>Tick <em>YouTube and YouTube Music</em>. Under <em>All YouTube data included</em>, keep <em>history</em> (and <em>music-library</em> if you like).</li>
-            <li>Under <em>Multiple formats</em>, set history to <em>JSON</em> (HTML works too, just slower).</li>
-            <li>Download the zip from Google's email and drop it here.</li>
-          </ol>
-          <p>If a service has no play history, its saved songs are used instead.</p>
-        </div>
-      </details>
-    </section>
+    <div id="shared-banner" class="banner" hidden>
+      <span>A shared report<span id="shared-date"></span>.</span>
+      <a id="make-own" href="./">Compare your own listening</a>
+    </div>
 
-    <section class="step" aria-labelledby="step2">
-      <h2 id="step2"><span class="num">2</span> Look up genres</h2>
-      <div class="options">
-        <label>Genre source
-          <select id="source">
-            <option value="musicbrainz">MusicBrainz (free, no key, about 1 artist a second)</option>
-            <option value="lastfm">Last.fm (free API key, faster, more tags)</option>
-          </select>
-        </label>
-        <label id="key-wrap" hidden>Last.fm API key
-          <input id="apikey" type="text" autocomplete="off" spellcheck="false" placeholder="32-character key">
-          <a class="fine" href="https://www.last.fm/api/account/create" target="_blank" rel="noopener">Get a key</a>
-        </label>
-        <label>Artists per service
-          <select id="topn">
-            <option value="50">Top 50</option>
-            <option value="100" selected>Top 100</option>
-            <option value="200">Top 200</option>
-            <option value="400">Top 400</option>
-          </select>
-        </label>
-        <label class="check" id="range-wrap" hidden>
-          <input id="same-range" type="checkbox" checked>
-          <span>Only compare the dates both services cover <span id="range-text" class="fine"></span></span>
-        </label>
-      </div>
-      <div class="go-row">
-        <button id="go" class="btn" disabled>Compare</button>
-        <button id="stop" class="btn ghost" hidden>Stop</button>
-        <span id="status" class="fine" role="status"></span>
-      </div>
-      <div class="progress" hidden><div class="bar"></div></div>
-    </section>
+    <div id="setup">
+      <section class="step" aria-labelledby="step1">
+        <h2 id="step1"><span class="num">I.</span> Your exports</h2>
+        <div class="drops">
+          <div class="drop" data-service="spotify" tabindex="0" role="button" aria-describedby="sp-help">
+            <div class="drop-head"><span class="service">Spotify</span><span class="drop-cta">Choose files</span></div>
+            <p id="sp-help">Drop the zip, the <code>StreamingHistory</code> JSON files, or a CSV</p>
+            <input type="file" multiple accept=".zip,.json,.csv,.html" hidden>
+            <ul class="files"></ul>
+          </div>
+          <div class="drop" data-service="youtube" tabindex="0" role="button" aria-describedby="yt-help">
+            <div class="drop-head"><span class="service">YouTube Music</span><span class="drop-cta">Choose files</span></div>
+            <p id="yt-help">Drop the Google Takeout zip, or <code>watch-history.json</code> / <code>.html</code></p>
+            <input type="file" multiple accept=".zip,.json,.csv,.html" hidden>
+            <ul class="files"></ul>
+          </div>
+        </div>
+        <details class="how">
+          <summary>Where to find these files</summary>
+          <div class="how-body">
+            <div>
+              <h3>Spotify</h3>
+              <ol>
+                <li>Go to <a href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener">spotify.com/account/privacy</a>.</li>
+                <li>Request <em>Account data</em> (about 5 days) or <em>Extended streaming history</em> (up to 30 days, covers your whole account).</li>
+                <li>Drop the zip from Spotify's email here as is. A CSV export works too.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>YouTube Music</h3>
+              <ol>
+                <li>Go to <a href="https://takeout.google.com/" target="_blank" rel="noopener">takeout.google.com</a> and click <em>Deselect all</em>.</li>
+                <li>Tick <em>YouTube and YouTube Music</em>; keep <em>history</em>, and set its format to <em>JSON</em>.</li>
+                <li>Drop the zip from Google's email here.</li>
+              </ol>
+            </div>
+          </div>
+          <p class="fine">If a service has no play history, its saved songs are used instead.</p>
+        </details>
+      </section>
+
+      <section class="step" aria-labelledby="step2">
+        <h2 id="step2"><span class="num">II.</span> Genres</h2>
+        <div class="options">
+          <label>Genre source
+            <select id="source">
+              <option value="musicbrainz">MusicBrainz (free, no key, about 1 artist a second)</option>
+              <option value="lastfm">Last.fm (free API key, faster, more tags)</option>
+            </select>
+          </label>
+          <label id="key-wrap" hidden>Last.fm API key
+            <input id="apikey" type="text" autocomplete="off" spellcheck="false" placeholder="32-character key">
+            <a class="fine" href="https://www.last.fm/api/account/create" target="_blank" rel="noopener">Get a key</a>
+          </label>
+          <label>Artists per service
+            <select id="topn">
+              <option value="50">Top 50</option>
+              <option value="100" selected>Top 100</option>
+              <option value="200">Top 200</option>
+              <option value="400">Top 400</option>
+            </select>
+          </label>
+          <label class="check" id="range-wrap" hidden>
+            <input id="same-range" type="checkbox" checked>
+            <span>Only compare the dates both services cover <span id="range-text" class="fine"></span></span>
+          </label>
+        </div>
+        <div class="go-row">
+          <button id="go" class="btn" disabled>Compare</button>
+          <button id="stop" class="btn ghost" hidden>Stop</button>
+          <span id="status" class="fine" role="status"></span>
+        </div>
+        <div class="progress" hidden><div class="bar"></div></div>
+      </section>
+    </div>
 
     <section id="results" hidden aria-labelledby="res-title">
-      <h2 id="res-title" class="sr-only">Results</h2>
-      <div class="tiles">
-        <div class="tile hero">
-          <div class="tile-label">Overall similarity</div>
-          <div class="tile-value" id="s-overall"></div>
-          <div class="tile-note" id="s-verdict"></div>
-        </div>
-        <div class="tile">
-          <div class="tile-label">Genre match</div>
-          <div class="tile-value" id="s-genre"></div>
-          <div class="tile-note">How closely your detailed genre mixes line up</div>
-        </div>
-        <div class="tile">
-          <div class="tile-label">Genre family overlap</div>
-          <div class="tile-value" id="s-family"></div>
-          <div class="tile-note">Share of listening in the same broad styles</div>
-        </div>
-        <div class="tile">
-          <div class="tile-label">Artist overlap</div>
-          <div class="tile-value" id="s-artist"></div>
-          <div class="tile-note" id="s-artist-note"></div>
+      <div class="results-head">
+        <h2 id="res-title"><span class="num" id="res-num">III.</span> The verdict</h2>
+        <div class="share">
+          <button id="copy-link" class="btn ghost small">Copy link</button>
+          <button id="save-image" class="btn ghost small">Save image</button>
+          <span id="share-status" class="fine" role="status"></span>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head">
+      <div class="verdict">
+        <div class="hero">
+          <div class="hero-value" id="s-overall"></div>
+          <div class="hero-label">overall similarity</div>
+          <div class="hero-verdict" id="s-verdict"></div>
+        </div>
+        <dl class="subscores">
+          <div>
+            <dt>Genre match</dt>
+            <dd id="s-genre"></dd>
+            <p>How closely the detailed genre mixes line up</p>
+          </div>
+          <div>
+            <dt>Genre families</dt>
+            <dd id="s-family"></dd>
+            <p>Share of listening in the same broad styles</p>
+          </div>
+          <div>
+            <dt>Artists</dt>
+            <dd id="s-artist"></dd>
+            <p id="s-artist-note"></p>
+          </div>
+        </dl>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
           <h3 id="chart-title">Top genres</h3>
           <div class="seg" role="tablist" aria-label="Genre detail">
             <button role="tab" aria-selected="true" data-view="genres">Genres</button>
@@ -124,9 +146,9 @@
           </div>
         </div>
         <div class="legend">
-          <span><i class="swatch sp"></i>Spotify</span>
-          <span><i class="swatch yt"></i>YouTube Music</span>
-          <span class="fine">Share of each service's listening</span>
+          <span><i class="key sp"></i>Spotify</span>
+          <span><i class="key yt"></i>YouTube Music</span>
+          <span class="fine">share of each service's listening</span>
         </div>
         <div id="chart" class="pairs"></div>
         <details class="table-view">
@@ -136,32 +158,32 @@
       </div>
 
       <div class="grid2">
-        <div class="card">
-          <h3>Leans more Spotify</h3>
-          <ol id="lean-sp" class="lean"></ol>
+        <div class="panel">
+          <h3>Leans Spotify</h3>
+          <ol id="lean-sp" class="list"></ol>
         </div>
-        <div class="card">
-          <h3>Leans more YouTube Music</h3>
-          <ol id="lean-yt" class="lean"></ol>
+        <div class="panel">
+          <h3>Leans YouTube Music</h3>
+          <ol id="lean-yt" class="list"></ol>
         </div>
       </div>
 
-      <div class="card">
-        <h3>Artists on both</h3>
-        <ol id="shared" class="artists"></ol>
+      <div class="panel">
+        <h3 id="shared-title">Artists on both</h3>
+        <ol id="shared" class="list artists"></ol>
       </div>
       <div class="grid2">
-        <div class="card">
+        <div class="panel">
           <h3>Only on Spotify</h3>
-          <ol id="only-sp" class="artists"></ol>
+          <ol id="only-sp" class="list artists"></ol>
         </div>
-        <div class="card">
+        <div class="panel">
           <h3>Only on YouTube Music</h3>
-          <ol id="only-yt" class="artists"></ol>
+          <ol id="only-yt" class="list artists"></ol>
         </div>
       </div>
 
-      <p class="fine" id="coverage"></p>
+      <p class="colophon" id="coverage"></p>
     </section>
   </main>
   <div id="tip" class="tip" role="tooltip" hidden></div>

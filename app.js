@@ -7,8 +7,7 @@ const CHART_ROWS = 15;
 
 // service -> [{ name, label, entries }]
 const loaded = { spotify: [], youtube: [] };
-let lastResult = null;
-let lastGenres = null;
+let report = null; // what's on screen; plain data so it can travel in a share link
 let view = "genres";
 let controller = null;
 
@@ -199,9 +198,8 @@ async function run() {
         setStatus(`Looking up genres: ${done} of ${total} artists${eta}`);
       },
     });
-    lastGenres = genreMap;
-    lastResult = compare(spotify, youtube, genreMap);
-    lastResult.profiles = { spotify, youtube, range };
+    const result = compare(spotify, youtube, genreMap);
+    report = buildReport(result, genreMap, { spotify, youtube, range, source });
     render();
     const found = [...genreMap.values()].filter((w) => Object.keys(w).length).length;
     setStatus(
@@ -217,6 +215,46 @@ async function run() {
   }
 }
 
+// Everything the results need, rounded and trimmed so it fits in a link.
+function buildReport(r, genreMap, { spotify, youtube, range, source }) {
+  const round = (x) => Math.round((x || 0) * 10000) / 10000;
+  const tagsFor = (key) =>
+    Object.entries(genreMap.get(key) || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([g]) => g);
+  const rows = (list, limit) =>
+    list.slice(0, limit).map((x) => ({ g: x.genre, f: x.family, s: round(x.spotify), y: round(x.youtube) }));
+  const people = (list, limit, pick) => list.slice(0, limit).map((a) => ({ n: a.name, t: tagsFor(a.key), ...pick(a) }));
+
+  const describe = (p, name, cov) =>
+    `${name}: ${p.total.toLocaleString()} ${p.usesSaved ? "saved songs" : "plays"}, ` +
+    `${p.artists.size.toLocaleString()} artists` +
+    (p.first ? `, ${fmtDate(p.first)} to ${fmtDate(p.last)}` : "") +
+    `; genres cover ${pct(cov)} of it.`;
+
+  return {
+    v: 1,
+    at: Date.now(),
+    scores: {
+      overall: round(r.scores.overall),
+      genre: round(r.scores.genreScore),
+      family: round(r.scores.familyScore),
+      artist: round(r.scores.artistScore),
+    },
+    sharedCount: r.sharedCount,
+    genres: rows(r.genreRows, 60),
+    families: rows(r.familyRows, 20),
+    shared: people(r.shared, 20, (a) => ({ s: round(a.spotify), y: round(a.youtube) })),
+    onlySp: people(r.onlySpotify, 10, (a) => ({ s: round(a.share) })),
+    onlyYt: people(r.onlyYoutube, 10, (a) => ({ y: round(a.share) })),
+    notes:
+      `${describe(spotify, "Spotify", r.coverage.spotify)} ${describe(youtube, "YouTube Music", r.coverage.youtube)}` +
+      (range ? " Only the dates both services cover are compared." : "") +
+      ` Genre data from ${source === "lastfm" ? "Last.fm" : "MusicBrainz"}.`,
+  };
+}
+
 /* ---------- Rendering results ---------- */
 
 for (const tab of document.querySelectorAll(".seg button")) {
@@ -228,55 +266,39 @@ for (const tab of document.querySelectorAll(".seg button")) {
 }
 
 function render() {
-  const r = lastResult;
+  const r = report;
   $("#results").hidden = false;
   $("#s-overall").textContent = score(r.scores.overall);
   $("#s-verdict").textContent = verdict(r.scores.overall);
-  $("#s-genre").textContent = score(r.scores.genreScore);
-  $("#s-family").textContent = score(r.scores.familyScore);
-  $("#s-artist").textContent = score(r.scores.artistScore);
-  $("#s-artist-note").textContent = `${r.sharedCount.toLocaleString()} artists on both, weighted by plays`;
-
+  $("#s-genre").textContent = score(r.scores.genre);
+  $("#s-family").textContent = score(r.scores.family);
+  $("#s-artist").textContent = score(r.scores.artist);
+  $("#s-artist-note").textContent = `${r.sharedCount.toLocaleString()} on both, weighted by plays`;
   renderChart();
   renderLeans();
   renderArtists();
-
-  const { spotify, youtube, range } = r.profiles;
-  const describe = (p, name) =>
-    `${name}: ${p.total.toLocaleString()} ${p.usesSaved ? "saved songs" : "plays"}, ` +
-    `${p.artists.size.toLocaleString()} artists` +
-    (p.first ? `, ${fmtDate(p.first)} to ${fmtDate(p.last)}` : "") +
-    `; genres cover ${pct(r.coverage[name === "Spotify" ? "spotify" : "youtube"])} of it.`;
-  $("#coverage").textContent =
-    `${describe(spotify, "Spotify")} ${describe(youtube, "YouTube Music")}` +
-    (range ? " Only the dates both services cover are compared." : "") +
-    " Genre data from " + (sourceEl.value === "lastfm" ? "Last.fm." : "MusicBrainz.");
-}
-
-function rowsForView() {
-  return view === "genres" ? lastResult.genreRows : lastResult.familyRows;
+  $("#coverage").textContent = r.notes;
+  $("#share-status").textContent = "";
 }
 
 function renderChart() {
-  const rows = rowsForView();
+  const rows = view === "genres" ? report.genres : report.families;
   const shown = rows.slice(0, CHART_ROWS);
   $("#chart-title").textContent = view === "genres" ? `Top ${shown.length} genres` : "Genre families";
-  const max = Math.max(...shown.flatMap((r) => [r.spotify, r.youtube]), 0.0001);
+  const max = Math.max(...shown.flatMap((r) => [r.s, r.y]), 0.0001);
   const chart = $("#chart");
   chart.replaceChildren();
-  if (!shown.length) {
-    chart.innerHTML = '<p class="empty">No genres were found for these artists.</p>';
-  }
+  if (!shown.length) chart.innerHTML = '<p class="fine">No genres were found for these artists.</p>';
   for (const row of shown) {
     const el = document.createElement("div");
     el.className = "pair";
     el.tabIndex = 0;
     const name = document.createElement("div");
     name.className = "pair-name";
-    name.textContent = row.genre;
+    name.textContent = row.g;
     const bars = document.createElement("div");
     bars.className = "pair-bars";
-    bars.append(barRow("sp", row.spotify, max), barRow("yt", row.youtube, max));
+    bars.append(barRow("sp", row.s, max), barRow("yt", row.y, max));
     el.append(name, bars);
     el.addEventListener("pointerenter", (e) => showTip(e, row));
     el.addEventListener("pointermove", moveTip);
@@ -287,14 +309,15 @@ function renderChart() {
   }
 
   const table = $("#table");
+  const withFamily = view === "genres";
   table.innerHTML =
-    `<thead><tr><th>${view === "genres" ? "Genre" : "Family"}</th>` +
-    (view === "genres" ? "<th>Family</th>" : "") +
+    `<thead><tr><th>${withFamily ? "Genre" : "Family"}</th>` +
+    (withFamily ? "<th>Family</th>" : "") +
     '<th class="n">Spotify</th><th class="n">YouTube Music</th></tr></thead>';
   const body = document.createElement("tbody");
   for (const row of rows) {
     const tr = document.createElement("tr");
-    const cells = [row.genre, ...(view === "genres" ? [row.family] : []), pct(row.spotify), pct(row.youtube)];
+    const cells = [row.g, ...(withFamily ? [row.f] : []), pct(row.s), pct(row.y)];
     cells.forEach((c, i) => {
       const td = document.createElement("td");
       td.textContent = c;
@@ -311,8 +334,7 @@ function barRow(cls, value, max) {
   row.className = "bar-row";
   const fill = document.createElement("div");
   fill.className = `bar-fill ${cls}`;
-  fill.style.width = `calc(${(100 * value) / max}% - 44px)`;
-  if (!value) fill.style.width = "0";
+  fill.style.width = value ? `calc(${(100 * value) / max}% - 44px)` : "0";
   const val = document.createElement("span");
   val.className = "bar-val";
   val.textContent = pct(value);
@@ -321,73 +343,288 @@ function barRow(cls, value, max) {
 }
 
 function renderLeans() {
-  const rows = lastResult.genreRows.filter((r) => r.spotify + r.youtube >= 0.01);
-  const byDiff = [...rows].sort((a, b) => b.spotify - b.youtube - (a.spotify - a.youtube));
-  fillLean("#lean-sp", byDiff.filter((r) => r.spotify > r.youtube).slice(0, 6), "spotify", "youtube");
-  fillLean("#lean-yt", byDiff.reverse().filter((r) => r.youtube > r.spotify).slice(0, 6), "youtube", "spotify");
-}
-
-function fillLean(sel, rows, more, less) {
-  const ol = $(sel);
-  ol.replaceChildren();
-  if (!rows.length) ol.innerHTML = '<li class="empty">Nothing stands out</li>';
-  for (const r of rows) {
-    ol.append(li(r.genre, `${pct(r[more])} vs ${pct(r[less])}`));
-    ol.lastChild.lastChild.className = "delta";
-  }
+  const rows = report.genres.filter((r) => r.s + r.y >= 0.01);
+  const byDiff = [...rows].sort((a, b) => b.s - b.y - (a.s - a.y));
+  fillList("#lean-sp", byDiff.filter((r) => r.s > r.y).slice(0, 6), (r) => [r.g, null, `${pct(r.s)} vs ${pct(r.y)}`]);
+  fillList("#lean-yt", byDiff.reverse().filter((r) => r.y > r.s).slice(0, 6), (r) => [r.g, null, `${pct(r.y)} vs ${pct(r.s)}`]);
 }
 
 function renderArtists() {
-  const tagsFor = (key) =>
-    Object.entries((lastGenres && lastGenres.get(key)) || {})
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([g]) => g)
-      .join(", ");
-
-  const fill = (sel, items, meta) => {
-    const ol = $(sel);
-    ol.replaceChildren();
-    if (!items.length) ol.innerHTML = '<li class="empty">None</li>';
-    for (const a of items) {
-      const item = document.createElement("li");
-      const who = document.createElement("span");
-      who.className = "who";
-      who.textContent = a.name;
-      const tags = tagsFor(a.key);
-      if (tags) {
-        const t = document.createElement("span");
-        t.className = "tags";
-        t.textContent = tags;
-        who.append(t);
-      }
-      const m = document.createElement("span");
-      m.className = "meta";
-      m.textContent = meta(a);
-      item.append(who, m);
-      ol.append(item);
-    }
-  };
-  fill("#shared", lastResult.shared.slice(0, 20), (a) => `${pct(a.spotify)} · ${pct(a.youtube)}`);
-  fill("#only-sp", lastResult.onlySpotify.slice(0, 10), (a) => pct(a.share));
-  fill("#only-yt", lastResult.onlyYoutube.slice(0, 10), (a) => pct(a.share));
-  $("#shared").previousElementSibling.textContent =
-    `Artists on both (${lastResult.sharedCount.toLocaleString()})`;
+  fillList("#shared", report.shared, (a) => [a.n, a.t.join(", "), `${pct(a.s)} · ${pct(a.y)}`]);
+  fillList("#only-sp", report.onlySp, (a) => [a.n, a.t.join(", "), pct(a.s)]);
+  fillList("#only-yt", report.onlyYt, (a) => [a.n, a.t.join(", "), pct(a.y)]);
+  $("#shared-title").textContent = `Artists on both (${report.sharedCount.toLocaleString()})`;
 }
+
+function fillList(sel, items, parts) {
+  const ol = $(sel);
+  ol.replaceChildren();
+  if (!items.length) ol.innerHTML = '<li class="empty">None stand out</li>';
+  for (const item of items) {
+    const [name, sub, meta] = parts(item);
+    const row = document.createElement("li");
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = name;
+    if (sub) {
+      const t = document.createElement("span");
+      t.className = "tags";
+      t.textContent = sub;
+      who.append(t);
+    }
+    const m = document.createElement("span");
+    m.className = "meta";
+    m.textContent = meta;
+    row.append(who, m);
+    ol.append(row);
+  }
+}
+
+/* ---------- Sharing ---------- */
+
+// The report rides in the link itself (compressed, after the #), so there's no server
+// and nothing is stored anywhere. Only the summary on screen is included.
+async function packReport(obj) {
+  const json = JSON.stringify(obj);
+  if (!window.CompressionStream) return "j" + b64url(new TextEncoder().encode(json));
+  const stream = new Blob([json]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  return "z" + b64url(new Uint8Array(await new Response(stream).arrayBuffer()));
+}
+
+async function unpackReport(text) {
+  const bytes = fromB64url(text.slice(1));
+  if (text[0] === "j") return JSON.parse(new TextDecoder().decode(bytes));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return JSON.parse(await new Response(stream).text());
+}
+
+function b64url(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromB64url(text) {
+  const bin = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+const shareStatus = $("#share-status");
+
+$("#copy-link").addEventListener("click", async () => {
+  const url = `${location.origin}${location.pathname}#r=${await packReport(report)}`;
+  if (location.protocol === "file:") {
+    shareStatus.textContent = "Links only work once the page is on a website, like GitHub Pages.";
+    return;
+  }
+  try {
+    if (navigator.share && matchMedia("(pointer: coarse)").matches) {
+      await navigator.share({ title: "Spotify & YouTube Music", text: shareText(), url });
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    shareStatus.textContent = "Link copied.";
+  } catch (err) {
+    if (err.name === "AbortError") return; // closed the share sheet
+    prompt("Copy this link:", url);
+  }
+});
+
+$("#save-image").addEventListener("click", async () => {
+  shareStatus.textContent = "Drawing…";
+  const blob = await drawCard(report);
+  const file = new File([blob], "music-compare.png", { type: "image/png" });
+  shareStatus.textContent = "";
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer: coarse)").matches) {
+      await navigator.share({ files: [file], title: "Spotify & YouTube Music", text: shareText() });
+      return;
+    }
+  } catch (err) {
+    if (err.name === "AbortError") return;
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = file.name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  shareStatus.textContent = "Image saved.";
+});
+
+function shareText() {
+  return `My Spotify and YouTube Music are ${score(report.scores.overall)} alike: ${verdict(report.scores.overall).toLowerCase()}.`;
+}
+
+// A portrait card (1080 × 1350) in the page's light paper style.
+async function drawCard(r) {
+  await document.fonts.ready;
+  const W = 1080;
+  const H = 1350;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const c = canvas.getContext("2d");
+  const ink = "#1c1a17";
+  const ink2 = "#5b564d";
+  const muted = "#877f72";
+  const gold = "#8f723a";
+  const rule = "#ddd5c6";
+  const serif = '"Cormorant Garamond", Georgia, serif';
+  const sans = '"DM Sans", system-ui, sans-serif';
+  const M = 90;
+
+  c.fillStyle = "#f7f3ea";
+  c.fillRect(0, 0, W, H);
+  c.textAlign = "center";
+  c.textBaseline = "alphabetic";
+
+  const spaced = (text, x, y, spacing) => {
+    c.letterSpacing = `${spacing}px`;
+    c.fillText(text, x, y);
+    c.letterSpacing = "0px";
+  };
+  const line = (y, color = ink, x1 = M, x2 = W - M) => {
+    c.fillStyle = color;
+    c.fillRect(x1, y, x2 - x1, 1.5);
+  };
+
+  c.fillStyle = gold;
+  c.font = `600 22px ${sans}`;
+  spaced("A LISTENING STUDY", W / 2, 128, 5);
+  c.fillStyle = ink;
+  c.font = `500 76px ${serif}`;
+  const left = "Spotify ";
+  const amp = "& ";
+  const right = "YouTube Music";
+  const wl = c.measureText(left).width;
+  c.font = `italic 500 76px ${serif}`;
+  const wa = c.measureText(amp).width;
+  c.font = `500 76px ${serif}`;
+  const wr = c.measureText(right).width;
+  let x = (W - wl - wa - wr) / 2;
+  c.textAlign = "left";
+  c.fillText(left, x, 222);
+  c.font = `italic 500 76px ${serif}`;
+  c.fillStyle = gold;
+  c.fillText(amp, x + wl, 222);
+  c.font = `500 76px ${serif}`;
+  c.fillStyle = ink;
+  c.fillText(right, x + wl + wa, 222);
+  c.textAlign = "center";
+  line(270);
+  line(277);
+
+  c.font = `500 230px ${serif}`;
+  c.fillText(score(r.scores.overall), W / 2, 500);
+  c.fillStyle = muted;
+  c.font = `600 20px ${sans}`;
+  spaced("OVERALL SIMILARITY", W / 2, 548, 5);
+  c.fillStyle = gold;
+  c.font = `italic 500 46px ${serif}`;
+  c.fillText(verdict(r.scores.overall), W / 2, 612);
+
+  line(668, rule);
+  const subs = [["GENRE MATCH", r.scores.genre], ["GENRE FAMILIES", r.scores.family], ["ARTISTS", r.scores.artist]];
+  const colW = (W - 2 * M) / 3;
+  subs.forEach(([label, v], i) => {
+    const cx = M + colW * i + colW / 2;
+    c.fillStyle = ink;
+    c.font = `500 64px ${serif}`;
+    c.fillText(score(v), cx, 752);
+    c.fillStyle = ink2;
+    c.font = `600 17px ${sans}`;
+    spaced(label, cx, 790, 3.5);
+    if (i) c.fillRect(M + colW * i, 700, 1.5, 100);
+  });
+  line(830, rule);
+
+  // Top genres as paired bars.
+  const rows = r.genres.slice(0, 6);
+  const max = Math.max(...rows.flatMap((g) => [g.s, g.y]), 0.0001);
+  const labelW = 300;
+  const barX = M + labelW + 24;
+  const barMax = W - M - barX - 70;
+  let y = 890;
+  c.textAlign = "left";
+  c.fillStyle = ink2;
+  c.font = `600 18px ${sans}`;
+  spaced("TOP GENRES", M, y, 4);
+  c.fillStyle = "#2f5d9e";
+  c.fillRect(W - M - 340, y - 8, 22, 4);
+  c.fillStyle = "#c0562f";
+  c.fillRect(W - M - 180, y - 8, 22, 4);
+  c.fillStyle = ink2;
+  c.font = `400 19px ${sans}`;
+  c.fillText("Spotify", W - M - 310, y);
+  c.fillText("YouTube Music", W - M - 150, y);
+  y += 42;
+  for (const g of rows) {
+    c.fillStyle = ink;
+    c.font = `500 30px ${serif}`;
+    c.textAlign = "right";
+    let name = g.g;
+    while (c.measureText(name).width > labelW && name.length > 3) name = name.slice(0, -2) + "…";
+    c.fillText(name, M + labelW, y + 16);
+    c.textAlign = "left";
+    [[g.s, "#2f5d9e", 0], [g.y, "#c0562f", 18]].forEach(([v, color, dy]) => {
+      const w = Math.max(2, (barMax * v) / max);
+      c.fillStyle = color;
+      c.beginPath();
+      c.roundRect(barX, y + dy - 2, w, 11, [0, 5, 5, 0]);
+      c.fill();
+      c.fillStyle = ink2;
+      c.font = `400 16px ${sans}`;
+      c.fillText(pct(v), barX + w + 10, y + dy + 8);
+    });
+    y += 56;
+  }
+
+  line(H - 92, rule);
+  c.textAlign = "center";
+  c.fillStyle = muted;
+  c.font = `400 19px ${sans}`;
+  const both = r.shared.slice(0, 3).map((a) => a.n).join(", ");
+  c.fillText(
+    r.sharedCount ? `${r.sharedCount.toLocaleString()} artists on both${both ? `, including ${both}` : ""}` : "No artists in common",
+    W / 2,
+    H - 50,
+  );
+
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+}
+
+// Opening a shared link shows that report instead of the upload steps.
+async function openSharedReport() {
+  const m = location.hash.match(/^#r=([jz][A-Za-z0-9_-]+)$/);
+  if (!m) return;
+  try {
+    report = await unpackReport(m[1]);
+  } catch {
+    return;
+  }
+  $("#setup").hidden = true;
+  $("#shared-banner").hidden = false;
+  $("#res-num").textContent = "";
+  $("#shared-date").textContent = report.at ? `, made ${fmtDate(report.at)}` : "";
+  $("#make-own").href = location.pathname;
+  render();
+}
+openSharedReport();
+window.addEventListener("hashchange", () => location.reload());
 
 /* ---------- Tooltip ---------- */
 
 const tip = $("#tip");
 function showTip(e, row, anchor) {
-  tip.innerHTML = "";
+  tip.replaceChildren();
   const title = document.createElement("strong");
-  title.textContent = row.genre;
+  title.textContent = row.g;
   tip.append(title);
-  if (row.family) tip.append(Object.assign(document.createElement("div"), { textContent: row.family }));
-  for (const [cls, label, v] of [["sp", "Spotify", row.spotify], ["yt", "YouTube Music", row.youtube]]) {
+  if (row.f) tip.append(Object.assign(document.createElement("div"), { className: "fam", textContent: row.f }));
+  for (const [cls, label, v] of [["sp", "Spotify", row.s], ["yt", "YouTube Music", row.y]]) {
     const r = document.createElement("div");
     r.className = "row";
-    r.innerHTML = `<i class="swatch ${cls}"></i>`;
+    r.innerHTML = `<i class="key ${cls}"></i>`;
     r.append(`${label}: ${pct(v)}`);
     tip.append(r);
   }
